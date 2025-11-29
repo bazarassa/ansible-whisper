@@ -1,0 +1,46 @@
+---
+- name: Role for whisper.cpp for Vulkan-supporting cards
+  hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Install git
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: yes
+
+    - name: Install OpenBLAS
+      ansible.builtin.apt:
+        name: libopenblas-dev
+        state: present
+
+    - name: Install ffmpeg
+      ansible.builtin.apt:
+        name: ffmpeg
+        state: present
+
+    - name: Clone latest whisper.cpp
+      ansible.builtin.git:
+        repo: https://github.com/ggml-org/whisper.cpp
+        dest: /opt/whisper.cpp
+        version: master
+
+    - name: Load a GGML model (large)
+      ansible.builtin.shell:
+        cmd: sh ./models/download-ggml-model.sh large-v3
+        chdir: /opt/whisper.cpp/
+
+    - name: Make config for whisper.cpp
+      ansible.builtin.shell:
+        cmd: cmake -B build -DGGML_VULKAN=1 DGGML_BLAS=1 -D WHISPER_FFMPEG=yes
+        chdir: /opt/whisper.cpp/
+
+    - name:
+      ansible.builtin.shell:
+        cmd: cmake --build build -j --config Release
+        chdir: /opt/whisper.cpp/
+
+
+    - name: Create a symlink for whisper-cli
+      ansible.builtin.shell: ln -s /opt/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
